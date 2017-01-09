@@ -1,62 +1,134 @@
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing ( onClick )
-
--- component import example
-import Components.Hello exposing ( hello )
+import Html.Events exposing ( onClick, on, targetValue )
+import Json.Decode as Json
 
 
--- APP
-main : Program Never Int Msg
+main : Program Never Model Msg
 main =
-  Html.beginnerProgram { model = model, view = view, update = update }
+  Html.beginnerProgram { model = initialModel, view = view, update = update }
 
 
--- MODEL
-type alias Model = Int
 
-model : number
-model = 0
+type alias Model =
+  {
+    max: Int
+  , fizz: Int
+  , buzz: Int
+  }
+
+initialModel : Model
+initialModel =
+  {
+    max = 20
+  , fizz = 3
+  , buzz = 5
+  }
 
 
 -- UPDATE
-type Msg = NoOp | Increment
+type Msg
+  = NoMsg
+  | ChangeMax String
+  | ChangeFizz String
+  | ChangeBuzz String
 
 update : Msg -> Model -> Model
 update msg model =
-  case msg of
-    NoOp -> model
-    Increment -> model + 1
+  let
+    toIntOrZero = \string -> getOrElse 0 <| String.toInt string
+  in
+    case msg of
+      ChangeMax max -> { model | max = toIntOrZero max }
+
+      ChangeFizz fizz -> { model | fizz = toIntOrZero fizz }
+
+      ChangeBuzz buzz -> { model | buzz = toIntOrZero buzz }
+
+      _ -> model
 
 
--- VIEW
--- Html is defined as: elem [ attribs ][ children ]
--- CSS can be applied via class names or inline style attrib
+getOrElse : Int -> Result a Int -> Int
+getOrElse els result =
+  case result of
+    Ok value -> value
+
+    Err _ -> els
+
+
 view : Model -> Html Msg
 view model =
-  div [ class "container", style [("margin-top", "30px"), ( "text-align", "center" )] ][    -- inline CSS (literal)
-    div [ class "row" ][
-      div [ class "col-xs-12" ][
-        div [ class "jumbotron" ][
-          img [ src "static/img/elm.jpg", style styles.img ] []                             -- inline CSS (via var)
-          , hello model                                                                     -- ext 'hello' component (takes 'model' as arg)
-          , p [] [ text ( "Elm Webpack Starter" ) ]
-          , button [ class "btn btn-primary btn-lg", onClick Increment ] [                  -- click handler
-            span[ class "glyphicon glyphicon-star" ][]                                      -- glyphicon
-            , span[][ text "FTW!" ]
-          ]
-        ]
+  let
+    fizzBuzz =
+      {
+        fizz = model.fizz
+      , buzz = model.buzz
+      }
+    fizzBuzzElementList = List.range 1 model.max |> List.map (fizzBuzzContainer fizzBuzz)
+  in
+    div [][
+      div [class "fizzbuzzInputs"] [
+        fizzBuzzInput model
+      , maxInput model
       ]
+    , ul [class "fizzBuzzList"] fizzBuzzElementList
+    ]
+
+
+onChange : (String -> msg) -> Html.Attribute msg
+onChange tagger =
+  on "change" (Json.map tagger targetValue)
+
+
+maxInput : Model -> Html Msg
+maxInput model =
+  div [] [
+    label [] [text "1 -"]
+  , input [type_ "number", value <| toString model.max, onChange ChangeMax] []
+  ]
+
+
+fizzBuzzInput : Model -> Html Msg
+fizzBuzzInput model =
+  div [class "fizzbuzzInputs"] [
+    div [class "fizzContainer"] [
+      label [] [text "Fizz"]
+    , input [type_ "number", value <| toString model.fizz, onChange ChangeFizz] []
+    ]
+  , div [class "buzzContainer"] [
+      label [] [text "Buzz"]
+    , input [type_ "number", value <| toString model.buzz, onChange ChangeBuzz] []
     ]
   ]
 
 
--- CSS STYLES
-styles : { img : List ( String, String ) }
-styles =
-  {
-    img =
-      [ ( "width", "33%" )
-      , ( "border", "4px solid #337AB7")
-      ]
-  }
+fizzBuzzContainer : {fizz: Int, buzz: Int} -> Int -> Html Msg
+fizzBuzzContainer fizzBuzz i =
+  fizzBuzzElement <|
+    if i % (fizzBuzz.fizz * fizzBuzz.buzz) == 0 then
+      {
+        content = "fizzbuzz"
+      , class = "fizzbuzz"
+      }
+    else if i % fizzBuzz.fizz == 0 then
+      {
+        content = "fizz"
+      , class = "fizz"
+      }
+    else if i % fizzBuzz.buzz == 0 then
+      {
+        content = "buzz"
+      , class = "buzz"
+      }
+    else
+      {
+        content = toString i
+      , class = "numberElement"
+      }
+
+
+fizzBuzzElement : {content: String, class: String} -> Html Msg
+fizzBuzzElement fizzBuzzModel =
+  li [class fizzBuzzModel.class] [
+    text fizzBuzzModel.content
+  ]
